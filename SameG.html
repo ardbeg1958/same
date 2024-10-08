@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>さめがめ</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .board {
+            display: grid;
+            grid-gap: 2px;
+            margin: 20px auto;
+            width: max-content;
+        }
+        .cell {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+            color: white;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        .cell.type-0 {
+            background-color: #f44336; /* Red */
+        }
+        .cell.type-1 {
+            background-color: #4caf50; /* Green */
+        }
+        .cell.type-2 {
+            background-color: #2196f3; /* Blue */
+        }
+        .cell.disappearing {
+            transform: scale(0.5);
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>さめがめ</h1>
+    <label for="boardSize">ボードサイズを選んでください:</label>
+    <select id="boardSize" onchange="changeBoardSize()">
+        <option value="10x10">10x10</option>
+        <option value="15x10">15x10 (縦長)</option>
+        <option value="10x15">10x15 (横長)</option>
+        <option value="20x10">20x10 (縦長)</option>
+        <option value="10x20">10x20 (横長)</option>
+    </select>
+    <div class="board" id="board"></div>
+    <button onclick="resetGame()">リセット</button>
+    <p id="score">スコア: 0</p>
+
+    <script>
+        const types = ['○', '▲', '□']; // ○, ▲, □
+        let board = [];
+        let rows = 10;
+        let cols = 10;
+        let score = 0;
+
+        function createBoard() {
+            board = [];
+            for (let i = 0; i < rows; i++) {
+                board.push([]);
+                for (let j = 0; j < cols; j++) {
+                    const type = Math.floor(Math.random() * types.length);
+                    board[i].push(type);
+                }
+            }
+        }
+
+        function drawBoard() {
+            const boardElement = document.getElementById('board');
+            boardElement.innerHTML = '';
+            boardElement.style.gridTemplateColumns = `repeat(${cols}, 40px)`;
+            for (let i = 0; i < rows; i++) {
+                for (let j = 0; j < cols; j++) {
+                    const cell = document.createElement('div');
+                    cell.className = `cell type-${board[i][j]}`;
+                    cell.textContent = types[board[i][j]];
+                    cell.dataset.row = i;
+                    cell.dataset.col = j;
+                    cell.addEventListener('click', () => handleCellClick(i, j));
+                    boardElement.appendChild(cell);
+                }
+            }
+        }
+
+        function handleCellClick(row, col) {
+            const type = board[row][col];
+            if (type === '') return;
+
+            const cellsToClear = findConnectedCells(row, col, type);
+            if (cellsToClear.length > 1) {
+                animateClearCells(cellsToClear);
+                setTimeout(() => {
+                    clearCells(cellsToClear);
+                    applyGravity();
+                    score += cellsToClear.length * cellsToClear.length;
+                    document.getElementById('score').textContent = `スコア: ${score}`;
+                    drawBoard();
+                }, 300);
+            }
+        }
+
+        function findConnectedCells(row, col, type) {
+            const stack = [[row, col]];
+            const visited = Array.from({ length: rows }, () => Array(cols).fill(false));
+            const connectedCells = [];
+
+            while (stack.length > 0) {
+                const [r, c] = stack.pop();
+                if (r < 0 || r >= rows || c < 0 || c >= cols) continue;
+                if (visited[r][c] || board[r][c] !== type) continue;
+
+                visited[r][c] = true;
+                connectedCells.push([r, c]);
+
+                stack.push([r - 1, c]);
+                stack.push([r + 1, c]);
+                stack.push([r, c - 1]);
+                stack.push([r, c + 1]);
+            }
+
+            return connectedCells;
+        }
+
+        function animateClearCells(cells) {
+            for (const [r, c] of cells) {
+                const cellElement = document.querySelector(`.cell[data-row='${r}'][data-col='${c}']`);
+                if (cellElement) {
+                    cellElement.classList.add('disappearing');
+                }
+            }
+        }
+
+        function clearCells(cells) {
+            for (const [r, c] of cells) {
+                board[r][c] = '';
+            }
+        }
+
+        function applyGravity() {
+            // Vertical gravity
+            for (let c = 0; c < cols; c++) {
+                let emptyIndex = rows - 1;
+                for (let r = rows - 1; r >= 0; r--) {
+                    if (board[r][c] !== '') {
+                        board[emptyIndex][c] = board[r][c];
+                        if (emptyIndex !== r) board[r][c] = '';
+                        emptyIndex--;
+                    }
+                }
+            }
+
+            // Horizontal shift
+            let emptyCol = 0;
+            for (let c = 0; c < cols; c++) {
+                if (board[rows - 1][c] !== '') {
+                    if (emptyCol !== c) {
+                        for (let r = 0; r < rows; r++) {
+                            board[r][emptyCol] = board[r][c];
+                            board[r][c] = '';
+                        }
+                    }
+                    emptyCol++;
+                }
+            }
+        }
+
+        function resetGame() {
+            score = 0;
+            document.getElementById('score').textContent = 'スコア: 0';
+            createBoard();
+            drawBoard();
+        }
+
+        function changeBoardSize() {
+            const boardSize = document.getElementById('boardSize').value;
+            const [newRows, newCols] = boardSize.split('x').map(Number);
+            rows = newRows;
+            cols = newCols;
+            resetGame();
+        }
+
+        // Initialize game
+        createBoard();
+        drawBoard();
+    </script>
+</body>
+</html>
